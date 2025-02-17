@@ -2,6 +2,12 @@
 title: "Building the Next Generation Tech Platform - Grubnox Light"
 ---
 
+<link rel="stylesheet" href="styles.css">
+
+
+
+
+
 # Building the Next Generation Tech Platform
 *A Grubnox Light Perspective*
 
