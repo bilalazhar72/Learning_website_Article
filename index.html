@@ -1,0 +1,193 @@
+``html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Complex Independent Knowledge Graphs</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background-color: #0f0f0f;
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+    }
+    canvas {
+      display: block;
+      border: 2px solid #ffffff;
+      background-color: #1a1a1a;
+    }
+    .tooltip {
+      position: absolute;
+      background: rgba(0, 0, 0, 0.7);
+      color: #fff;
+      padding: 5px 10px;
+      border-radius: 5px;
+      pointer-events: none;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="network1" width="300" height="300"></canvas>
+  <canvas id="network2" width="300" height="300"></canvas>
+  <canvas id="network3" width="300" height="300"></canvas>
+  <div class="tooltip" id="tooltip"></div>
+  <script>
+    const canvases = [
+      document.getElementById('network1'),
+      document.getElementById('network2'),
+      document.getElementById('network3')
+    ];
+
+    const tooltip = document.getElementById('tooltip');
+
+    const networks = [];
+    const numNodesPerNetwork = 30; // Increased number of nodes per network
+
+    class Node {
+      constructor(x, y, associatedNumber) {
+        this.x = x;
+        this.y = y;
+        this.radius = 6;
+        this.baseColor = '#ffffff';
+        this.color = this.baseColor;
+        this.associatedNumber = associatedNumber;
+      }
+
+      draw(ctx, hasActiveNodes) {
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+        ctx.fillStyle = this.color === this.baseColor && hasActiveNodes ? 'rgba(255, 255, 255, 0.3)' : this.color;
+        ctx.fill();
+        ctx.closePath();
+      }
+
+      isClicked(mouseX, mouseY) {
+        const dist = Math.hypot(mouseX - this.x, mouseY - this.y);
+        return dist < this.radius;
+      }
+    }
+
+    function createNetwork(canvas, associations) {
+      const nodes = [];
+      const connections = [];
+
+      for (let i = 0; i < numNodesPerNetwork; i++) {
+        const x = Math.random() * canvas.width;
+        const y = Math.random() * canvas.height;
+        const associatedNumber = associations[i % associations.length]; // Cycle through associations
+        nodes.push(new Node(x, y, associatedNumber));
+      }
+
+      // Create more complex connections
+      for (let i = 0; i < nodes.length; i++) {
+        const connectionCount = Math.floor(Math.random() * 4) + 1; // Random connections per node
+        for (let j = 0; j < connectionCount; j++) {
+          const targetIndex = Math.floor(Math.random() * nodes.length);
+          if (targetIndex !== i && !connections.some(c => (c[0] === i && c[1] === targetIndex) || (c[0] === targetIndex && c[1] === i))) {
+            connections.push([i, targetIndex]);
+          }
+        }
+      }
+
+      return { nodes, connections };
+    }
+
+    // Define the associations for each network using letters
+    const network1Associations = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'A'];
+    const network2Associations = ['I', 'H', 'G', 'F', 'E', 'D', 'C', 'B', 'A', 'I'];
+    const network3Associations = ['E', 'F', 'G', 'H', 'I', 'A', 'B', 'C', 'D', 'E'];
+
+    networks.push(createNetwork(canvases[0], network1Associations));
+    networks.push(createNetwork(canvases[1], network2Associations));
+    networks.push(createNetwork(canvases[2], network3Associations));
+
+    function drawConnections(ctx, nodes, connections) {
+      ctx.lineWidth = 1;
+      const hasActiveNodes = nodes.some(node => node.color !== node.baseColor);
+      for (const [a, b] of connections) {
+        const active = nodes[a].color !== nodes[a].baseColor && 
+                      nodes[b].color !== nodes[b].baseColor && 
+                      nodes[a].associatedNumber === nodes[b].associatedNumber;
+        ctx.strokeStyle = active ? '#ff6f61' : (hasActiveNodes ? 'rgba(75, 75, 75, 0.3)' : '#4b4b4b');
+        ctx.beginPath();
+        ctx.moveTo(nodes[a].x, nodes[a].y);
+        ctx.lineTo(nodes[b].x, nodes[b].y);
+        ctx.stroke();
+      }
+    }
+
+    function drawNodes(ctx, nodes) {
+      const hasActiveNodes = nodes.some(node => node.color !== node.baseColor);
+      for (const node of nodes) {
+        node.draw(ctx, hasActiveNodes);
+      }
+    }
+
+    let hoveredNode = null;
+
+    function handleMouseMove(canvasIndex, e) {
+      const canvas = canvases[canvasIndex];
+      const rect = canvas.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
+
+      const network = networks[canvasIndex];
+      let hoverNode = null;
+
+      for (const node of network.nodes) {
+        const dist = Math.hypot(mouseX - node.x, mouseY - node.y);
+        if (dist < node.radius * 2) {  // Increased detection radius
+          hoverNode = node;
+          tooltip.style.display = 'block';
+          tooltip.style.left = `${e.pageX + 10}px`;
+          tooltip.style.top = `${e.pageY + 10}px`;
+          tooltip.textContent = `Node Type ${node.associatedNumber}`;
+          break;
+        }
+      }
+
+      if (!hoverNode) {
+        tooltip.style.display = 'none';
+      }
+
+      // Reset all node colors in all networks
+      for (const net of networks) {
+        for (const node of net.nodes) {
+          node.color = node.baseColor;
+        }
+      }
+
+      // Highlight nodes with the same associated number across all networks
+      if (hoverNode) {
+        hoveredNode = hoverNode;
+        const targetType = hoverNode.associatedNumber;
+        for (const net of networks) {
+          for (const node of net.nodes) {
+            if (node.associatedNumber === targetType) {
+              node.color = '#61ff61'; // Highlight color
+            }
+          }
+        }
+      } else {
+        hoveredNode = null;
+      }
+
+      // Redraw all networks
+      for (let i = 0; i < canvases.length; i++) {
+        const ctx = canvases[i].getContext('2d');
+        ctx.clearRect(0, 0, canvases[i].width, canvases[i].height);
+        drawConnections(ctx, networks[i].nodes, networks[i].connections);
+        drawNodes(ctx, networks[i].nodes);
+      }
+    }
+
+    for (let i = 0; i < canvases.length; i++) {
+      canvases[i].addEventListener('mousemove', (e) => handleMouseMove(i, e));
+    }
+  </script>
+</body>
+</html>
